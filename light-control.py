@@ -1,6 +1,6 @@
 import asyncio
 import tkinter as tk
-from kasa import SmartPlug
+from kasa import Discover
 import threading
 import time
 
@@ -11,18 +11,15 @@ class KasaApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Kasa Touch Control")
-        
-        # Optimized for 3.5" S2Pi Screen
         self.root.attributes('-fullscreen', True)
         self.root.configure(bg='black')
 
-        # Initialize Kasa Plug
-        self.plug = SmartPlug(PLUG_IP)
+        # State variable for the device object
+        self.device = None
         
-        # Setup UI
         self.setup_ui()
         
-        # Start the background status polling thread
+        # Start the background logic
         self.update_status_loop()
 
     def setup_ui(self):
@@ -35,7 +32,6 @@ class KasaApp:
 
         btn_font = ("Arial", 22, "bold")
         
-        # Large ON Button
         self.on_btn = tk.Button(
             self.root, text="LIGHT ON", bg="#27ae60", fg="white",
             activebackground="#2ecc71", font=btn_font,
@@ -43,7 +39,6 @@ class KasaApp:
         )
         self.on_btn.pack(fill="both", expand=True, padx=30, pady=10)
 
-        # Large OFF Button
         self.off_btn = tk.Button(
             self.root, text="LIGHT OFF", bg="#c0392b", fg="white",
             activebackground="#e74c3c", font=btn_font,
@@ -51,42 +46,57 @@ class KasaApp:
         )
         self.off_btn.pack(fill="both", expand=True, padx=30, pady=10)
 
-    # --- ASYNC LOGIC ---
     def run_async(self, coro):
-        """Runs Kasa commands in a background thread to keep GUI responsive"""
         threading.Thread(target=lambda: asyncio.run(coro()), daemon=True).start()
 
+    async def _ensure_connected(self):
+        """Initializes device using the new discovery method if not already connected"""
+        if self.device is None:
+            try:
+                # This is the new recommended way to connect to a single device
+                self.device = await Discover.discover_single(PLUG_IP)
+            except Exception:
+                return False
+        return True
+
     async def turn_on(self):
-        try:
-            await self.plug.turn_on()
-            self.root.after(0, self.refresh_ui, True)
-        except Exception:
-            self.root.after(0, self.handle_error)
+        if await self._ensure_connected():
+            try:
+                await self.device.turn_on()
+                self.root.after(0, self.refresh_ui, True)
+            except Exception:
+                self.root.after(0, self.handle_error)
 
     async def turn_off(self):
-        try:
-            await self.plug.turn_off()
-            self.root.after(0, self.refresh_ui, False)
-        except Exception:
-            self.root.after(0, self.handle_error)
+        if await self._ensure_connected():
+            try:
+                await self.device.turn_off()
+                self.root.after(0, self.refresh_ui, False)
+            except Exception:
+                self.root.after(0, self.handle_error)
 
-    # --- STATUS REFRESH ---
     def update_status_loop(self):
         """Periodically syncs UI with the actual plug state"""
         def poll():
             while True:
-                try:
-                    asyncio.run(self.plug.update())
-                    is_on = self.plug.is_on
-                    self.root.after(0, self.refresh_ui, is_on)
-                except Exception:
-                    self.root.after(0, self.handle_error)
-                time.sleep(3) # Check every 3 seconds
-        
+                # Use a new event loop for this thread's async calls
+                asyncio.run(self._poll_logic())
+                time.sleep(3)
+
         threading.Thread(target=poll, daemon=True).start()
 
+    async def _poll_logic(self):
+        if await self._ensure_connected():
+            try:
+                await self.device.update()
+                is_on = self.device.is_on
+                self.root.after(0, self.refresh_ui, is_on)
+            except Exception:
+                self.root.after(0, self.handle_error)
+        else:
+            self.root.after(0, self.handle_error)
+
     def refresh_ui(self, is_on):
-        """Updates colors and text based on plug state"""
         if is_on:
             self.status_label.config(text="● LIGHT IS ON", fg="#2ecc71")
             self.root.configure(bg="#0a1a0a")
