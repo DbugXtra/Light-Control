@@ -1,3 +1,15 @@
+<p align="center">
+  <a href="https://donate.stripe.com/5kQ4gAa0b4pP7YQaW35EY00">
+    <img src="./stripe-donate-qrcode.png"
+         alt="Scan to buy us a coffee with Stripe"
+         width="150"
+         height="150"
+         style="border: 2px solid #6772E5; border-radius: 5px;">
+  </a>
+  <br>
+  <medium>Click or Scan to Buy us a Coffee</medium>
+</p>
+
 # 💡 RPi 5 Kasa Light Control
 
 A fullscreen, touch-optimized Python GUI for controlling TP-Link Kasa Smart Plugs. Designed specifically for the Raspberry Pi 5 and 3.5" S2Pi touchscreen.
@@ -81,17 +93,4 @@ If you need to run the app manually for debugging, use:
 | **App won't start** | Check for errors by running manually in the terminal: `./venv/bin/python3 light-control.py` |
 | **Screen turns black** | Disable screen blanking: `sudo raspi-config` -> **Display Options** -> **Screen Blanking** -> **No**. |
 | **Cursor is visible** | Ensure `self.root.config(cursor="none")` is present in the `__init__` section of the script. |
----
-
-## 🧹 Cleanup (If switching from systemd)
-
-If you previously tried to use the `systemd` service, you should disable it to avoid conflicts:
-
-```bash
-sudo systemctl stop light_control.service
-sudo systemctl disable light_control.service
-sudo rm /etc/systemd/system/light_control.service
-sudo systemctl daemon-reload
-```
-
 ---
