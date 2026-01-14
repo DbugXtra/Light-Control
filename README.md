@@ -1,28 +1,56 @@
-```markdown
 # 💡 RPi 5 Kasa Light Control
 
-A Python-based touchscreen interface for TP-Link Kasa smart plugs, optimized for the Raspberry Pi 5 with an S2Pi 3.5" display.
+A lightweight, fullscreen Python GUI designed for the **S2Pi 3.5" Touchscreen** and **Raspberry Pi 5**. This application provides an easy-to-use interface to control a TP-Link Kasa Smart Plug.
 
-## 🛠 Setup
-1. **Directory:** `/home/<user>/Light-Control`
-2. **Environment:**
-   ```bash
-   python3 -m venv venv
-   ./venv/bin/pip install python-kasa
+## ✨ Features
+
+* **Protocol Support:** Uses the modern `kasa.Discover` method (compatible with older plugs and newer Matter devices).
+* **Invisible Cursor:** The mouse pointer is hidden natively via Tkinter for a clean touch experience.
+* **Real-time Status:** Synchronizes with the plug state every 3 seconds (even if the light is switched via the Kasa mobile app).
+* **Resilient Design:** Background threading ensures the UI never freezes during network timeouts.
+---
+
+## 🛠 Setup & Installation
+
+### 1. Project Directory
+
+Ensure your files are located in `/home/<user>/Light-Control`.
+
+### 2. Prepare the Virtual Environment
+
+```bash
+cd /home/<user>/Light-Control
+python3 -m venv venv
+./venv/bin/pip install python-kasa
 ```
 
-## 🧪 Testing Locally
+### 3. Configuration
 
-To test the script manually (especially via SSH), use:
+Open `light-control.py` and update the `PLUG_IP` variable:
+
+```python
+PLUG_IP = "192.168.1.XXX"  # Use your plug's static IP
+```
+
+---
+
+## 🧪 Testing
+
+To test the interface manually while logged in via terminal or SSH, use the following command to target the local display:
 
 ```bash
 DISPLAY=:0 ./venv/bin/python3 light-control.py
 ```
 
-## ⚙️ Auto-Start Configuration
+---
 
-Create the service file:
-`sudo nano /etc/systemd/system/light-control.service`
+## ⚙️ Auto-Start (Systemd)
+
+To have the application start automatically when the Pi boots into the desktop, create a service file:
+
+`sudo nano /etc/systemd/system/light_control.service`
+
+**Paste the following:**
 
 ```ini
 [Unit]
@@ -43,9 +71,30 @@ RestartSec=10
 WantedBy=graphical.target
 ```
 
-## 📋 Commands
+### Enable and Start
 
-* **Enable:** `sudo systemctl enable light-control.service`
-* **Start:** `sudo systemctl start light-control.service`
-* **Stop:** `sudo systemctl stop light-control.service`
-* **Logs:** `journalctl -u light-control.service -f`
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable light_control.service
+sudo systemctl start light_control.service
+```
+
+---
+
+## 🛠 Troubleshooting & Maintenance
+
+| Action | Command |
+| --- | --- |
+| **Check if running** | `systemctl status light_control.service` |
+| **View real-time logs** | `journalctl -u light_control.service -f` |
+| **Stop the app** | `sudo systemctl stop light_control.service` |
+| **Restart the app** | `sudo systemctl restart light_control.service` |
+
+### Disabling Screen Blanking
+
+To ensure the screen stays on and doesn't turn black after 10 minutes:
+
+1. Run `sudo raspi-config`.
+2. Navigate to **Display Options** > **Screen Blanking**.
+3. Select **No** and finish.
+---
