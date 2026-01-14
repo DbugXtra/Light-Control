@@ -13,6 +13,10 @@ class KasaApp:
         self.root.title("Kasa Touch Control")
         self.root.attributes('-fullscreen', True)
         self.root.configure(bg='black')
+
+        # --- HIDE MOUSE POINTER ---
+        self.root.config(cursor="none")
+
         self.device = None
         self.setup_ui()
         self.update_status_loop()
