@@ -1,13 +1,14 @@
 # 💡 RPi 5 Kasa Light Control
 
-A lightweight, fullscreen Python GUI designed for the **S2Pi 3.5" Touchscreen** and **Raspberry Pi 5**. This application provides an easy-to-use interface to control a TP-Link Kasa Smart Plug.
+A fullscreen, touch-optimized Python GUI for controlling TP-Link Kasa Smart Plugs. Designed specifically for the Raspberry Pi 5 and 3.5" S2Pi touchscreen.
 
 ## ✨ Features
 
-* **Protocol Support:** Uses the modern `kasa.Discover` method (compatible with older plugs and newer Matter devices).
-* **Invisible Cursor:** The mouse pointer is hidden natively via Tkinter for a clean touch experience.
-* **Real-time Status:** Synchronizes with the plug state every 3 seconds (even if the light is switched via the Kasa mobile app).
-* **Resilient Design:** Background threading ensures the UI never freezes during network timeouts.
+* **Wayland Compatible:** Optimized for the Pi 5's default display engine.
+* **Touch-First UI:** Large buttons and no visible mouse cursor.
+* **Live Sync:** Updates plug status every 3 seconds to reflect changes made via the Kasa app.
+* **Auto-Recovery:** Automatically attempts to reconnect if the plug goes offline.
+
 ---
 
 ## 🛠 Setup & Installation
@@ -16,7 +17,7 @@ A lightweight, fullscreen Python GUI designed for the **S2Pi 3.5" Touchscreen** 
 
 Ensure your files are located in `/home/<user>/Light-Control`.
 
-### 2. Prepare the Virtual Environment
+### 2. Prepare the Environment
 
 ```bash
 cd /home/<user>/Light-Control
@@ -26,75 +27,71 @@ python3 -m venv venv
 
 ### 3. Configuration
 
-Open `light-control.py` and update the `PLUG_IP` variable:
-
-```python
-PLUG_IP = "192.168.1.XXX"  # Use your plug's static IP
-```
+Update the `PLUG_IP` in `light-control.py` with your smart plug's IP address.
 
 ---
 
-## 🧪 Testing
+## 🚀 Auto-Start (Recommended Method)
 
-To test the interface manually while logged in via terminal or SSH, use the following command to target the local display:
+On Raspberry Pi 5, launching via the desktop environment is more reliable than using a systemd service.
 
+1. **Create the autostart directory:**
 ```bash
-DISPLAY=:0 ./venv/bin/python3 light-control.py
+mkdir -p /home/<user>/.config/autostart
 ```
 
----
 
-## ⚙️ Auto-Start (Systemd)
+2. **Create the shortcut file:**
+```bash
+nano /home/<user>/.config/autostart/light-control.desktop
+```
 
-To have the application start automatically when the Pi boots into the desktop, create a service file:
 
-`sudo nano /etc/systemd/system/light_control.service`
-
-**Paste the following:**
-
+3. **Paste the following content:**
 ```ini
-[Unit]
-Description=Kasa Touchscreen Control
-After=graphical.target
-
-[Service]
-User=<user>
-WorkingDirectory=/home/<user>/Light-Control
-Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/<user>/.Xauthority
-ExecStartPre=/bin/sleep 10
-ExecStart=/home/<user>/Light-Control/venv/bin/python3 light-control.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=graphical.target
+[Desktop Entry]
+Type=Application
+Name=Kasa Light Control
+Comment=Launch Kasa Touchscreen UI
+Exec=/home/<user>/Light-Control/venv/bin/python3 /home/<user>/Light-Control/light-control.py
+Terminal=false
+Categories=Utility;
 ```
 
-### Enable and Start
+
+
+---
+
+## 🧪 Testing & Manual Run
+
+If you need to run the app manually for debugging, use:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable light_control.service
-sudo systemctl start light_control.service
+# From the project folder
+./venv/bin/python3 light-control.py
 ```
 
 ---
 
-## 🛠 Troubleshooting & Maintenance
+## 🛠 Troubleshooting
 
-| Action | Command |
+| Issue | Solution |
 | --- | --- |
-| **Check if running** | `systemctl status light_control.service` |
-| **View real-time logs** | `journalctl -u light_control.service -f` |
-| **Stop the app** | `sudo systemctl stop light_control.service` |
-| **Restart the app** | `sudo systemctl restart light_control.service` |
+| **"Plug Offline"** | Verify the IP address in the Kasa App. Ensure the Pi and Plug are on the same 2.4GHz Wi-Fi band. |
+| **App won't start** | Check for errors by running manually in the terminal: `./venv/bin/python3 light-control.py` |
+| **Screen turns black** | Disable screen blanking: `sudo raspi-config` -> **Display Options** -> **Screen Blanking** -> **No**. |
+| **Cursor is visible** | Ensure `self.root.config(cursor="none")` is present in the `__init__` section of the script. |
+---
 
-### Disabling Screen Blanking
+## 🧹 Cleanup (If switching from systemd)
 
-To ensure the screen stays on and doesn't turn black after 10 minutes:
+If you previously tried to use the `systemd` service, you should disable it to avoid conflicts:
 
-1. Run `sudo raspi-config`.
-2. Navigate to **Display Options** > **Screen Blanking**.
-3. Select **No** and finish.
+```bash
+sudo systemctl stop light_control.service
+sudo systemctl disable light_control.service
+sudo rm /etc/systemd/system/light_control.service
+sudo systemctl daemon-reload
+```
+
 ---
