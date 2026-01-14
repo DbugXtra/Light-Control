@@ -60,19 +60,33 @@ class KasaApp:
         threading.Thread(target=poll, daemon=True).start()
 
     async def _poll_logic(self):
-        if await self._ensure_connected():
-            try:
-                await self.device.update()
-                self.root.after(0, self.refresh_ui, self.device.is_on)
-            except: self.root.after(0, self.handle_error)
+        # We try to ensure connection every poll to recover from hiccups
+        try:
+            # If device isn't initialized or connection was lost
+            if self.device is None:
+                self.device = await Discover.discover_single(PLUG_IP, timeout=2)
+            
+            await self.device.update()
+            is_on = self.device.is_on
+            # Success! Update the UI with the actual state
+            self.root.after(0, self.refresh_ui, is_on)
+        except Exception as e:
+            # If it fails, clear the device object so we try a fresh discovery next time
+            self.device = None 
+            self.root.after(0, self.handle_error)
 
     def refresh_ui(self, is_on):
+        """Updates colors and text based on plug state"""
         if is_on:
             self.status_label.config(text="● LIGHT IS ON", fg="#2ecc71")
             self.root.configure(bg="#0a1a0a")
         else:
             self.status_label.config(text="○ LIGHT IS OFF", fg="#7f8c8d")
             self.root.configure(bg="black")
+        
+        # IMPORTANT: Re-enable buttons if they were disabled during offline
+        self.on_btn.config(state="normal")
+        self.off_btn.config(state="normal")
 
     def handle_error(self):
         self.status_label.config(text="⚠ PLUG OFFLINE", fg="#e74c3c")
