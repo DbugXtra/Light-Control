@@ -42,29 +42,33 @@ class KasaApp:
         if self.device is None:
             try:
                 self.device = await Discover.discover_single(PLUG_IP, timeout=5)
-            except:
+            except Exception:
                 return False
         return True
 
     async def turn_on(self):
         with self._lock:
-            if await self._ensure_connected():
-                try:
-                    await self.device.turn_on()
-                    self.root.after(0, self.refresh_ui, True)
-                except:
-                    self.device = None
-                    self.root.after(0, self.handle_error)
+            if not await self._ensure_connected():
+                self.root.after(0, self.handle_error)
+                return
+            try:
+                await self.device.turn_on()
+                self.root.after(0, self.refresh_ui, True)
+            except Exception:
+                self.device = None
+                self.root.after(0, self.handle_error)
 
     async def turn_off(self):
         with self._lock:
-            if await self._ensure_connected():
-                try:
-                    await self.device.turn_off()
-                    self.root.after(0, self.refresh_ui, False)
-                except:
-                    self.device = None
-                    self.root.after(0, self.handle_error)
+            if not await self._ensure_connected():
+                self.root.after(0, self.handle_error)
+                return
+            try:
+                await self.device.turn_off()
+                self.root.after(0, self.refresh_ui, False)
+            except Exception:
+                self.device = None
+                self.root.after(0, self.handle_error)
 
     def update_status_loop(self):
         def poll():
@@ -75,10 +79,10 @@ class KasaApp:
 
     async def _poll_logic(self):
         with self._lock:
+            if not await self._ensure_connected():
+                self.root.after(0, self.handle_error)
+                return
             try:
-                if self.device is None:
-                    self.device = await Discover.discover_single(PLUG_IP, timeout=5)
-
                 await self.device.update()
                 is_on = self.device.is_on
                 self.root.after(0, self.refresh_ui, is_on)
