@@ -18,6 +18,7 @@ class KasaApp:
         self.root.config(cursor="none")
 
         self.device = None
+        self._lock = threading.Lock()
         self.setup_ui()
         self.update_status_loop()
 
@@ -26,11 +27,13 @@ class KasaApp:
         self.status_label.pack(pady=(20, 10))
         btn_font = ("Arial", 22, "bold")
         
-        tk.Button(self.root, text="LIGHT ON", bg="#27ae60", fg="white", font=btn_font,
-                  command=lambda: self.run_async(self.turn_on)).pack(fill="both", expand=True, padx=30, pady=10)
-        
-        tk.Button(self.root, text="LIGHT OFF", bg="#c0392b", fg="white", font=btn_font,
-                  command=lambda: self.run_async(self.turn_off)).pack(fill="both", expand=True, padx=30, pady=10)
+        self.on_btn = tk.Button(self.root, text="LIGHT ON", bg="#27ae60", fg="white", font=btn_font,
+                  command=lambda: self.run_async(self.turn_on))
+        self.on_btn.pack(fill="both", expand=True, padx=30, pady=10)
+
+        self.off_btn = tk.Button(self.root, text="LIGHT OFF", bg="#c0392b", fg="white", font=btn_font,
+                  command=lambda: self.run_async(self.turn_off))
+        self.off_btn.pack(fill="both", expand=True, padx=30, pady=10)
 
     def run_async(self, coro):
         threading.Thread(target=lambda: asyncio.run(coro()), daemon=True).start()
@@ -38,19 +41,34 @@ class KasaApp:
     async def _ensure_connected(self):
         if self.device is None:
             try:
-                self.device = await Discover.discover_single(PLUG_IP)
-            except: return False
+                self.device = await Discover.discover_single(PLUG_IP, timeout=5)
+            except Exception:
+                return False
         return True
 
     async def turn_on(self):
-        if await self._ensure_connected():
-            try: await self.device.turn_on(); self.root.after(0, self.refresh_ui, True)
-            except: self.root.after(0, self.handle_error)
+        with self._lock:
+            if not await self._ensure_connected():
+                self.root.after(0, self.handle_error)
+                return
+            try:
+                await self.device.turn_on()
+                self.root.after(0, self.refresh_ui, True)
+            except Exception:
+                self.device = None
+                self.root.after(0, self.handle_error)
 
     async def turn_off(self):
-        if await self._ensure_connected():
-            try: await self.device.turn_off(); self.root.after(0, self.refresh_ui, False)
-            except: self.root.after(0, self.handle_error)
+        with self._lock:
+            if not await self._ensure_connected():
+                self.root.after(0, self.handle_error)
+                return
+            try:
+                await self.device.turn_off()
+                self.root.after(0, self.refresh_ui, False)
+            except Exception:
+                self.device = None
+                self.root.after(0, self.handle_error)
 
     def update_status_loop(self):
         def poll():
@@ -60,20 +78,17 @@ class KasaApp:
         threading.Thread(target=poll, daemon=True).start()
 
     async def _poll_logic(self):
-        # We try to ensure connection every poll to recover from hiccups
-        try:
-            # If device isn't initialized or connection was lost
-            if self.device is None:
-                self.device = await Discover.discover_single(PLUG_IP, timeout=2)
-            
-            await self.device.update()
-            is_on = self.device.is_on
-            # Success! Update the UI with the actual state
-            self.root.after(0, self.refresh_ui, is_on)
-        except Exception as e:
-            # If it fails, clear the device object so we try a fresh discovery next time
-            self.device = None 
-            self.root.after(0, self.handle_error)
+        with self._lock:
+            if not await self._ensure_connected():
+                self.root.after(0, self.handle_error)
+                return
+            try:
+                await self.device.update()
+                is_on = self.device.is_on
+                self.root.after(0, self.refresh_ui, is_on)
+            except Exception:
+                self.device = None
+                self.root.after(0, self.handle_error)
 
     def refresh_ui(self, is_on):
         """Updates colors and text based on plug state"""
